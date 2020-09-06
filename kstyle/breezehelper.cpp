@@ -925,28 +925,7 @@ namespace Breeze
     }
 
     //______________________________________________________________________________
-    void Helper::renderRadioButtonBackground( QPainter* painter, const QRect& rect, const QColor& color, bool sunken ) const
-    {
-
-        // setup painter
-        painter->setRenderHint( QPainter::Antialiasing, true );
-
-        // copy rect
-        QRectF frameRect( rect );
-        frameRect.adjust( 3, 3, -3, -3 );
-        if( sunken ) frameRect.translate(1, 1);
-
-        painter->setPen( Qt::NoPen );
-        painter->setBrush( color );
-        painter->drawEllipse( frameRect );
-
-    }
-
-    //______________________________________________________________________________
-    void Helper::renderRadioButton(
-        QPainter* painter, const QRect& rect,
-        const QColor& color, const QColor& shadow,
-        bool sunken, RadioButtonState state, qreal animation ) const
+    void Helper::renderRadioButtonBackground( QPainter* painter, const QRect& rect, const QPalette& palette, RadioButtonState state, qreal animation ) const
     {
 
         // setup painter
@@ -956,54 +935,86 @@ namespace Breeze
         QRectF frameRect( rect );
         frameRect.adjust( 2, 2, -2, -2 );
 
-        // shadow
-        if( sunken )
-        {
+        auto transparent = focusColor(palette);
+        transparent.setAlphaF(0.55);
 
-            frameRect.translate( 1, 1 );
+        auto sunkGradient = QLinearGradient(rect.topLeft(), rect.bottomLeft());
+        sunkGradient.setColorAt(0, focusColor(palette));
+        sunkGradient.setColorAt(1, transparent);
 
-        } else {
+        painter->setPen( QColor(0, 0, 0, 38) );
 
-            renderEllipseShadow( painter, frameRect, shadow );
-
+        switch (state) {
+        case RadioOff:
+            painter->setBrush( palette.base() );
+            painter->drawEllipse( frameRect );
+            break;
+        case RadioOn:
+            painter->setBrush( sunkGradient );
+            painter->drawEllipse( frameRect );
+            break;
+        case RadioAnimated:
+            painter->setBrush( palette.base() );
+            painter->drawEllipse( frameRect );
+            painter->setBrush( sunkGradient );
+            painter->setOpacity( animation );
+            painter->drawEllipse( frameRect );
+            break;
         }
+    }
 
-        // content
-        {
+    //______________________________________________________________________________
+    void Helper::renderRadioButton(
+        QPainter* painter, const QRect& rect,
+        const QPalette& palette, bool mouseOver,
+        RadioButtonState state, qreal animation, qreal animationHover ) const
+    {
+        // setup painter
+        painter->setRenderHint( QPainter::Antialiasing, true );
 
-            painter->setPen( QPen( color, PenWidth::Frame ) );
+        // copy rect
+        QRectF frameRect( rect );
+        frameRect.adjust( 1, 1, -1, -1 );
+
+        if ( mouseOver ) {
+            painter->save();
+
+            if (animationHover != AnimationData::OpacityInvalid) {
+                painter->setOpacity(animationHover);
+            }
+
+            painter->setPen( QPen( focusColor(palette), PenWidth::Frame ) );
             painter->setBrush( Qt::NoBrush );
 
-            const QRectF contentRect( strokedRect( frameRect ) );
+            const QRectF contentRect( strokedRect( frameRect ).adjusted( 1, 1, -1, -1 ) );
             painter->drawEllipse( contentRect );
 
+            painter->restore();
         }
+
+        painter->setBrush( palette.highlightedText() );
+        painter->setPen( Qt::NoPen );
+
+        QRectF markerRect;
+        markerRect = frameRect.adjusted( 5, 5, -5, -5 );
+        
+        qreal adjustFactor;
 
         // mark
-        if( state == RadioOn )
-        {
-
-            painter->setBrush( color );
-            painter->setPen( Qt::NoPen );
-
-            const QRectF markerRect( frameRect.adjusted( 3, 3, -3, -3 ) );
+        switch (state) {
+        case RadioOn:
             painter->drawEllipse( markerRect );
 
-        } else if( state == RadioAnimated ) {
-
-            painter->setBrush( color );
-            painter->setPen( Qt::NoPen );
-            QRectF markerRect( frameRect.adjusted( 3, 3, -3, -3 ) );
-
-            painter->translate( markerRect.center() );
-            painter->rotate( 45 );
-
-            markerRect.setWidth( markerRect.width()*animation );
-            markerRect.translate( -markerRect.center() );
+            break;
+        case RadioAnimated:
+            adjustFactor = markerRect.height() * (1 - animation);
+            markerRect.adjust(adjustFactor, adjustFactor, -adjustFactor, -adjustFactor);
             painter->drawEllipse( markerRect );
 
+            break;
+        default:
+            break;
         }
-
     }
 
     //______________________________________________________________________________
